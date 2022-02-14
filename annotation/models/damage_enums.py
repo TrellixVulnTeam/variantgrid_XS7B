@@ -58,7 +58,7 @@ class PathogenicityImpact(AbstractPathogenicity):
     MODIFIER = '1'
     LOW = '2'
     MODERATE = '3'
-    MODERATE_OTHER = '*'  # This is a custom filter not a VEP value, so won't be in annotation data
+    MODERATE_OTHER = '*'  # This is made up so not in VariantAnnotation, but is in VariantAnnotationFilters.impact
     HIGH = '4'
 
     CHOICES = [
@@ -69,22 +69,7 @@ class PathogenicityImpact(AbstractPathogenicity):
         (HIGH, 'HIGH'),
     ]
     MINIMUM_FLAG_DAMAGE_LEVEL = MODERATE
-    VARIANT_PATH = "variantannotation__impact"
-
-    @classmethod
-    def get_damage_or_greater_levels(cls, min_level=None):
-        levels = super().get_damage_or_greater_levels(min_level)
-        levels.discard(cls.MODERATE_OTHER)
-        return levels
-
-    @classmethod
-    def get_q(cls, min_level=None, allow_null=False):
-        q = super().get_q(min_level=min_level, allow_null=allow_null)
-        if min_level == cls.MODERATE_OTHER:
-            # SNV=HIGH, non SNV HIGH or MODERATE
-            q_non_snv = cls._get_q_for_damage_levels([cls.MODERATE], allow_null)
-            q |= q_non_snv & Q(variantannotation__variant_class__ne=VariantClass.SNV)
-        return q
+    VARIANT_PATH = "variantannotationfilters__impact"
 
 
 class SIFTPrediction(AbstractPathogenicity):

@@ -466,13 +466,19 @@ class AnnotationRun(TimeStampedModel):
         return f"AnnotationRun: {localtime(self.modified)} ({self.status})"
 
 
-class AbstractVariantAnnotation(models.Model):
-    """ Common fields between VariantAnnotation and VariantTranscriptAnnotation
-        These fields are PER-TRANSCRIPT """
+class AbstractVariantAnnotationData(models.Model):
+    """ Something that holds annotation against variant """
     version = models.ForeignKey(VariantAnnotationVersion, on_delete=CASCADE)
     variant = models.ForeignKey(Variant, on_delete=CASCADE)
     annotation_run = models.ForeignKey(AnnotationRun, on_delete=CASCADE)
 
+    class Meta:
+        abstract = True
+
+
+class AbstractVariantAnnotation(AbstractVariantAnnotationData):
+    """ Common fields between VariantAnnotation and VariantTranscriptAnnotation
+        These fields are PER-TRANSCRIPT """
     # gene/transcript are set by VEP and don't have a version.
     # can be set when up/downstream of gene (in which case HGVS_C and thus transcript_version will be null)
     gene = models.ForeignKey(Gene, null=True, on_delete=CASCADE)
@@ -768,6 +774,21 @@ class VariantTranscriptAnnotation(AbstractVariantAnnotation):
         vto = VariantGeneOverlap.objects.filter(gene__in=gene_ids_qs)
         # Use pk__in so we don't return multiple records per variant
         return Q(pk__in=vto.values_list("variant_id", flat=True))
+
+
+class VariantAnnotationFilters(AbstractVariantAnnotationData):
+    """ This is a small table, of pre-processed stuff used to quickly remove rows before
+        using the >100 row VariantAnnotation """
+    # Unlike VariantAnnotation.impact - this has "*" (MODERATE) in it when class != 'SN'
+    impact = models.CharField(max_length=1, choices=PathogenicityImpact.CHOICES, null=True, blank=True)
+    # The most common population filters are gnomad_af and gnomad_popmax_af
+    # As popmax is always > gnomad_af, we can thus always do gnomad_af then further restrict with popmax
+    gnomad_af = models.FloatField()  # From all non-disease population groups
+    max_splice_score = models.FloatField()  # Of spliceAI and dbscsnv_ada_score/dbscsnv_rf_score
+    # (Q(consequence__contains='splice')|Q(splice_region__isnull=False)) & Q(variantannotation__variant_class__ne="SN")
+    splice_indel = models.BooleanField(default=False, blank=True)
+    # Summary of most_damaging fields for faster DamageNode queries - these are from variant annotation
+    predictions_num_pathogenic = models.IntegerField(default=0)
 
 
 class VariantGeneOverlap(models.Model):

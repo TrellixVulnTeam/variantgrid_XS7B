@@ -16,7 +16,7 @@ from snpdb.models.models_enums import BuiltInFilters
 REQUIRED_FIELDS = {
     BuiltInFilters.CLINVAR: "clinvar__highest_pathogenicity",
     BuiltInFilters.OMIM: "variantannotation__gene__geneannotation__omim_terms",
-    BuiltInFilters.IMPACT_HIGH_OR_MODERATE: "variantannotation__impact",
+    BuiltInFilters.IMPACT_HIGH_OR_MODERATE: "variantannotationfilters__impact",
 }
 
 CLASSIFICATION_COUNT_SQL = """
@@ -34,7 +34,7 @@ COUNTS = {
     BuiltInFilters.TOTAL: "count(*)",
     BuiltInFilters.CLINVAR: "sum(case when %(annotation_clinvar)s.highest_pathogenicity >= 4 then 1 else 0 end)",
     BuiltInFilters.OMIM: "sum(case when %(annotation_geneannotation)s.omim_terms is not null then 1 else 0 end)",
-    BuiltInFilters.IMPACT_HIGH_OR_MODERATE: "sum(case when %(annotation_variantannotation)s.impact in ('H', 'M') then 1 else 0 end)",
+    BuiltInFilters.IMPACT_HIGH_OR_MODERATE: "sum(case when %(annotation_variantannotationfilters)s.impact in ('H', '*', 'M') then 1 else 0 end)",
     BuiltInFilters.COSMIC: "sum(case when %(annotation_variantannotation)s.cosmic_id is not null then 1 else 0 end)",
     BuiltInFilters.CLASSIFIED: f"sum(case when exists ({CLASSIFICATION_COUNT_SQL}) then 1 else 0 end)",
     BuiltInFilters.CLASSIFIED_PATHOGENIC: f"sum(case when exists ({CLASSIFICATION_COUNT_SQL} AND classification_classification.clinical_significance in ('4', '5')) then 1 else 0 end)"
@@ -52,7 +52,7 @@ def get_extra_filters_q(user: User, genome_build: GenomeBuild, extra_filters):
             clinical_significance_list = [ClinicalSignificance.LIKELY_PATHOGENIC, ClinicalSignificance.PATHOGENIC]
         q = Classification.get_variant_q(user, genome_build, clinical_significance_list)
     elif extra_filters == BuiltInFilters.IMPACT_HIGH_OR_MODERATE:
-        q = Q(variantannotation__impact__in=(PathogenicityImpact.HIGH, PathogenicityImpact.MODERATE))
+        q = Q(variantannotationfilters__impact__in=(PathogenicityImpact.HIGH, PathogenicityImpact.MODERATE))
     elif extra_filters == BuiltInFilters.COSMIC:
         q = Q(variantannotation__cosmic_id__isnull=False)
     else:
@@ -116,6 +116,7 @@ def get_node_counts_and_labels_dict(node, counts_to_get):
         _, from_str, where_str = get_queryset_select_from_where_parts(qs)
 
         partition_names = node.analysis.annotation_version.get_partition_names()
+        partition_names["annotation_variantannotationfilters"] = "annotation_variantannotationfilters"
 
         select_columns = []
         for count_type in counts_to_get:

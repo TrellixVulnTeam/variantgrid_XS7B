@@ -62,23 +62,16 @@ class DamageNode(AnalysisNode):
 
         if self.splice_min is not None:
             # [consequence contains 'splice' OR not null splice region] AND [variant class not SNV]
-            q_splice_indels = Q(variantannotation__consequence__contains='splice') | Q(variantannotation__splice_region__isnull=False)
-            q_splice_indels &= Q(variantannotation__variant_class__ne="SN")
             splicing_q_list = [
-                q_splice_indels,
-                Q(variantannotation__dbscsnv_ada_score__gte=self.splice_min),
-                Q(variantannotation__dbscsnv_rf_score__gte=self.splice_min),
+                Q(variantannotationfilters__splice_indel=True),
+                Q(variantannotationfilters__max_splice_score__gte=self.splice_min),
             ]
             if self.splice_required and self.splice_allow_null:
                 splicing_q_list.extend([
                     Q(variantannotation__dbscsnv_ada_score__isnull=True),
                     Q(variantannotation__dbscsnv_rf_score__isnull=True),
                 ])
-
-            for _, (ds, _) in VariantAnnotation.SPLICEAI_DS_DP.items():
-                q_spliceai = Q(**{f"variantannotation__{ds}__gte": self.splice_min})
-                splicing_q_list.append(q_spliceai)
-                if self.splice_required and self.splice_allow_null:
+                for _, (ds, _) in VariantAnnotation.SPLICEAI_DS_DP.items():
                     q_spliceai_null = Q(**{f"variantannotation__{ds}__isnull": True})
                     splicing_q_list.append(q_spliceai_null)
 
@@ -114,7 +107,7 @@ class DamageNode(AnalysisNode):
                 or_filters.append(q_cosmic_count)
 
         if self.damage_predictions_min is not None:
-            q_damage = Q(variantannotation__predictions_num_pathogenic__gte=self.damage_predictions_min)
+            q_damage = Q(variantannotationfilters__predictions_num_pathogenic__gte=self.damage_predictions_min)
             if self.damage_predictions_required:
                 if self.damage_predictions_allow_null:
                     max_benign = len(VariantAnnotation.PATHOGENICITY_FIELDS) - self.damage_predictions_min

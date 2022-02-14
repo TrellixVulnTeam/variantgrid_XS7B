@@ -53,13 +53,21 @@ class PopulationNode(AnalysisNode):
         and_q = []
         if self.filtering_by_population:
             population_databases = set()
-            for field in self.POPULATION_DATABASE_FIELDS:
+
+            population_database_fields = list(self.POPULATION_DATABASE_FIELDS)
+            population_database_fields.remove("gnomad_af")  # Handled below
+            # We can use the much smaller table variantannotationfilters for a speed boost
+            # gnomad_popmax_af is always >= gnomad_af, so ok to always include
+            if self.gnomad_af or self.gnomad_popmax_af:
+                population_databases.add((f"variantannotationfilters__gnomad_af", False))
+
+            for field in population_database_fields:
                 if getattr(self, field):
-                    population_databases.add(field)
+                    population_databases.add((f"variantannotation__{field}", True))
 
             for gnomad_pop in self.populationnodegnomadpopulation_set.all():
                 field = VariantAnnotation.get_gnomad_population_field(gnomad_pop.population)
-                population_databases.add(field)
+                population_databases.add((f"variantannotation__{field}", True))
 
             if population_databases:
                 # The group operation is backwards from what you may expect, as the widget takes MAX
@@ -74,10 +82,11 @@ class PopulationNode(AnalysisNode):
                 group_operation = OPERATIONS[self.group_operation]
                 max_allele_frequency = self.percent / 100
                 filters = []
-                for field in self.POPULATION_DATABASE_FIELDS:
-                    q_isnull = Q(**{f"variantannotation__{field}__isnull": True})
-                    q_max_value = Q(**{f"variantannotation__{field}__lte": max_allele_frequency})
-                    filters.append(q_isnull | q_max_value)
+                for path, nullable in population_databases:
+                    q_pop = Q(**{f"{path}__lte": max_allele_frequency})
+                    if nullable:
+                        q_pop |= Q(**{f"{path}__isnull": True})
+                    filters.append(q_pop)
 
                 and_q.append(reduce(group_operation, filters))
 
