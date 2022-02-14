@@ -98,13 +98,13 @@ REDIS_PORT = 6379
 CACHE_VERSION = 31  # increment to flush caches (eg if invalid due to upgrade)
 CACHES = {
     'default': {
-        "BACKEND": "redis_cache.RedisCache",
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
         "LOCATION": "redis://127.0.0.1:%d/1" % REDIS_PORT,
         'TIMEOUT': TIMEOUT,
         'VERSION': CACHE_VERSION,
     },
     'debug-panel': {
-        "BACKEND": "redis_cache.RedisCache",
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
         "LOCATION": "redis://127.0.0.1:%d/1" % REDIS_PORT,
         'TIMEOUT': TIMEOUT,
         'OPTIONS': {
