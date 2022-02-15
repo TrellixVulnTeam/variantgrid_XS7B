@@ -1,6 +1,6 @@
 import operator
 from functools import reduce
-from typing import Optional
+from typing import Optional, Dict
 
 from django.conf import settings
 from django.db import models
@@ -49,6 +49,13 @@ class PopulationNode(AnalysisNode):
         return any([self.filtering_by_population, self.use_internal_counts,
                     self.gnomad_hom_alt_max, not self.show_gnomad_filtered])
 
+    def _get_annotation_kwargs_for_node(self) -> Dict:
+        annotation_kwargs = super()._get_annotation_kwargs_for_node()
+        if self.use_internal_counts:
+            vzcc = VariantZygosityCountCollection.objects.get(name=settings.VARIANT_ZYGOSITY_GLOBAL_COLLECTION)
+            annotation_kwargs.update(vzcc.get_annotation_kwargs())
+        return annotation_kwargs
+
     def _get_node_q(self) -> Optional[Q]:
         and_q = []
         if self.filtering_by_population:
@@ -79,7 +86,7 @@ class PopulationNode(AnalysisNode):
                     GroupOperation.ALL: operator.or_,
                     GroupOperation.ANY: operator.and_,
                 }
-                group_operation = OPERATIONS[self.group_operation]
+                group_operation = OPERATIONS[GroupOperation(self.group_operation)]
                 max_allele_frequency = self.percent / 100
                 filters = []
                 for path, nullable in population_databases:
