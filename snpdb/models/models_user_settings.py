@@ -254,7 +254,7 @@ class UserSettings:
             if lab.organization.active:
                 return lab
 
-        if lab := Lab.valid_labs_qs(self.user).first() or Lab.valid_labs_qs(self.user, admin_check=True).exclude(external=True).exclude(organization__active=False).first():
+        if lab := Lab.valid_labs_qs(self.user, admin_check=True).exclude(external=True).exclude(organization__active=False).first():
             return lab
 
         raise ValueError("User doesn't have access to any Labs")
